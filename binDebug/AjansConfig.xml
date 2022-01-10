@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Config>
+  <SrcFolder>\\10.1.100.184\IHA_Videos\</SrcFolder>  
+  <videoDownloadFolder>\\hansel.sistem.turkmedya.local\AGENCIES\</videoDownloadFolder>
+  <logFolder></logFolder>
+  <dbServer>10.10.20.201</dbServer>
+  <dbPort>1433</dbPort>
+  <dbName>TurkMedya</dbName>
+  <dbUser>tm</dbUser>
+  <dbPass>t1M2a7u8o90</dbPass>  
+</Config>
