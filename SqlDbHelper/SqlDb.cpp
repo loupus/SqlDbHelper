@@ -1,6 +1,6 @@
 ﻿
 #include <typeinfo>
-
+#include <time.h>
 #include "SqlDb.hpp"
 
 BackObject cSqlDb::Initiliaze()
@@ -10,7 +10,7 @@ BackObject cSqlDb::Initiliaze()
     if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
         back.ErrDesc = "SQLAllocHandleENV failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        HandleDiagnosticRecord(hEnv, SQL_HANDLE_ENV, ret, back);
         back.Success = false;
         return back;
     }
@@ -18,7 +18,7 @@ BackObject cSqlDb::Initiliaze()
     if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
         back.ErrDesc = "SQLSetEnvAttr failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        HandleDiagnosticRecord(hEnv, SQL_HANDLE_ENV, ret, back);
         back.Success = false;
         return back;
     }
@@ -27,7 +27,7 @@ BackObject cSqlDb::Initiliaze()
     if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
         back.ErrDesc = "SQLAllocHandleDBC failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        HandleDiagnosticRecord(hDBC, SQL_HANDLE_DBC, ret, back);
         back.Success = false;
         return back;
     }
@@ -35,7 +35,7 @@ BackObject cSqlDb::Initiliaze()
     if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
         back.ErrDesc = "SQLSetConnectAttr failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        HandleDiagnosticRecord(hDBC, SQL_HANDLE_DBC, ret, back);
         back.Success = false;
         return back;
     }
@@ -83,56 +83,20 @@ BackObject cSqlDb::DisConnect()
     return back;
 }
 
-bool cSqlDb::AddParameter(ISParameter& p)
+void cSqlDb::AddParameter(ISParameter& p, bool bResetParams)
 {
+    if (bResetParams) ResetParams();
     params.push_back(p);
-    return true;
-
 }
-
-
-template<typename T>
-bool cSqlDb::AddParameter(T* pValuePtr, unsigned short pParameterNumber, long long pColumnSize, PDirection pDir)
-{
-    ISParameter s1;
-    s1.StatementHandle = hStmt;
-    s1.ColumnSize = pColumnSize;
-    s1.DecimalDigits = 0;
-    s1.InputOutputType = pDir;
-    s1.ParameterNumber = pParameterNumber;
-    if (typeid(T) == typeid(short))
-    {
-        s1.ParameterType = SQL_SMALLINT;
-        s1.ValueType = SQL_C_SHORT;
-        s1.ParameterValuePtr = pValuePtr;
-    }
-    else if (typeid(T) == typeid(int))
-    {
-        s1.ParameterType = SQL_INTEGER;
-        s1.ValueType = SQL_C_LONG;
-        s1.ParameterValuePtr = pValuePtr;
-    }
-    else if (typeid(T) == typeid(std::string))
-    {
-        s1.ParameterType = SQL_CHAR;
-        s1.ValueType = SQL_C_CHAR;
-        s1.BufferLength = pColumnSize;
-        s1.ParamToLocal();
-    }
-    params.push_back(s1);
-    return true;
-}
-
 
 BackObject cSqlDb::BindParameters()
 {
     BackObject back;
-    SQLRETURN retcode;
     if (params.size() > 0)
     {
         for (auto& j : params)
         {
-            retcode = SQLBindParameter(j.StatementHandle, j.ParameterNumber, j.InputOutputType, j.ValueType, j.ParameterType, j.ColumnSize, j.DecimalDigits, j.ParameterValuePtr, j.BufferLength, &j.StrLen_or_IndPtr);
+            ret = SQLBindParameter(hStmt, j.ParameterNumber, j.InputOutputType, j.ValueType, j.ParameterType, j.ColumnSize, j.DecimalDigits, j.ParameterValuePtr, j.BufferLength, &j.StrLen_or_IndPtr);
             if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
             {
                 back.ErrDesc = "SQLBindParameter failed";
@@ -142,6 +106,24 @@ BackObject cSqlDb::BindParameters()
            
         }
     }    
+    return back;
+}
+
+bool cSqlDb::IsConnected()
+{
+    /*
+    SQLRETURN SQLGetConnectAttr(
+        SQLHDBC        ConnectionHandle,
+        SQLINTEGER     Attribute,
+        SQLPOINTER     ValuePtr,
+        SQLINTEGER     BufferLength,
+        SQLINTEGER * StringLengthPtr);
+        */
+    bool back = false;
+    SQLINTEGER status = 0;
+    ret = SQLGetConnectAttr(hDBC, SQL_ATTR_CONNECTION_DEAD, &status, SQL_IS_INTEGER , NULL);
+    if (status == SQL_CD_TRUE)
+        back = true;
     return back;
 }
 
@@ -157,208 +139,9 @@ void cSqlDb::ResetColumns()
     columns.shrink_to_fit();
 }
 
-//void cSqlDb::Doit()
-//{
-//    BackObject back;
-//
-//    SQLCHAR         colname[MAXCOLS][32];        // column name
-//    SQLSMALLINT     coltype[MAXCOLS];            // column type
-//    SQLSMALLINT     colnamelen[MAXCOLS];         // length of column name
-//    SQLSMALLINT     nullable[MAXCOLS];           // whether column can have NULL value
-//    SQLULEN         collen[MAXCOLS];             // array of column lengths
-//    SQLSMALLINT     decimaldigits[MAXCOLS];               // no of digits if column is numeric
-//    SQLLEN          outlen[MAXCOLS];             // lengths of column values returned
-//    SQLPOINTER      data[MAXCOLS];               // buffers for retrieving column values
-//    SQLRETURN       retcode;                     // general return code
-//    SQLLEN          displaysize;                 // drivers column display size
-//    SQLINTEGER      i, j;
-//    SQLSMALLINT columns;
-//
-//    SQLRETURN ret;
-//    int iType = 13;
-//
-//    back = Initiliaze();
-//    if (!back.Success)
-//    {
-//        std::cout << back.ErrDesc << std::endl;
-//        goto Exit;
-//    }
-//    back = Connect();
-//    if (!back.Success)
-//    {
-//        std::cout << back.ErrDesc << std::endl;
-//        goto Exit;
-//    }
-//
-//   
-//
-//    AddParameter<int>(&iType, 1);
-//    BindParameters();
-//    ret = SQLPrepareA(hStmt, (SQLCHAR*)"select ID,Name, Type, ParentID from Assets where Type = ?",SQL_NTS);
-//    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
-//    {
-//        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//        std::cout << "SQLPrepareA failed" << std::endl;
-//        goto Exit;
-//    }
-//
-//
-//
-//
-//    // int cType = 0;
-//
-//     // Initialise data array
-//    for (i = 0; i < MAXCOLS; i++)
-//    {
-//        data[i] = NULL;
-//    }
-//
-//    ret = SQLNumResultCols(hStmt, &columns);
-//
-//
-//    for (i = 0; i < columns; i++)
-//    {
-//        // for each column from the prepared statement in hstmt, get the
-//        // column name, type, column size, decimal digits, and nullability
-//        ret = SQLDescribeColA(hStmt,
-//            (SQLUSMALLINT)i + 1,
-//            colname[i],
-//            sizeof(colname[i]),
-//            &colnamelen[i],
-//            &coltype[i],
-//            &collen[i],
-//            &decimaldigits[i],
-//            &nullable[i]);
-//
-//        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
-//        {
-//            HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//            std::cout << "SQLDescribeColA failed" << std::endl;
-//            goto Exit;
-//        }
-//
-//
-//        displaysize = 0;
-//        // get Maximum number of characters required to display data
-//        // from the column.
-//        ret = SQLColAttribute(hStmt, (SQLUSMALLINT)i + 1, SQL_COLUMN_DISPLAY_SIZE, NULL, 0, NULL, &displaysize);
-//        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
-//        {
-//            std::cout << "SQLColAttribute/SQL_COLUMN_DISPLAY_SIZE  failed" << std::endl;
-//            goto Exit;
-//        }
-//
-//
-//        if (collen[i] > displaysize)
-//        {
-//            collen[i] = displaysize + 1;
-//        }
-//        else
-//        {
-//            collen[i] = collen[i] + 1;
-//        }
-//
-//
-//        if (coltype[i] == SQL_CHAR || coltype[i] == SQL_VARCHAR || coltype[i] == SQL_GUID)
-//        {
-//            collen[i] = collen[i] * 2;  // cunku unicode character 2 bayt hikayesi var
-//        }
-//
-//       // std::cout << "name: " << colname[i] << "    namelen: " << colnamelen[i] << "    type: " << coltype[i] << "  len: " << collen[i] << "    decimaldigits: " << decimaldigits[i] << "   nullable: " << nullable[i] << std::endl;
-//
-//      //  printf("colname: %ls colnamelen: %ld coltype: %ld  collen: %ld  decimaldigits: %ld  nullable:%ld \n", colname[i], colnamelen[i], coltype[i], collen[i], decimaldigits[i], nullable[i]);
-//    }
-//
-//    for (i = 0; i < columns; i++)
-//    {
-//        ret = SQLBindCol(hStmt, (SQLUSMALLINT)i + 1, GetCFieldType(coltype[i], &data[i], collen[i], outlen[i]), (SQLPOINTER)data[i], collen[i], &outlen[i]);
-//        if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
-//        {
-//            HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//            std::cout << "SQLBindCol" << colname[i] <<" failed" << std::endl;
-//            goto Exit;
-//          
-//        }
-//    }
-//
-//
-//    ret = SQLExecDirect(hStmt, (SQLTCHAR*)L"select ID,Name, Type, ParentID from Assets where Type = ?;", SQL_NTS);
-//    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
-//    {
-//        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//        std::cout << "SQLExecDirect failed" << std::endl;
-//        goto Exit;
-//    }
-//
-//    while (true)
-//    {
-//        ret = SQLFetch(hStmt);
-//        if (ret == SQL_NO_DATA_FOUND)
-//        {
-//            printf("End of data.\n");
-//            break;
-//        }
-//
-//        if (ret == SQL_ERROR)
-//        {
-//            printf("hata var\n");
-//            //HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//            break;
-//        }
-//
-//        if (ret == SQL_SUCCESS_WITH_INFO)
-//        {
-//            printf("oldu gibi\n");
-//            //HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret);
-//
-//        }
-//
-//
-//        std::cout << "data0 - " << (char*)(data[0]) << std::endl;
-//        std::cout << "data1 - " << (char*)data[1] << std::endl;
-//        std::cout << "data2 - " << *(int*)data[2] << std::endl;
-//        std::cout << "data3 - " << (char*)data[3] << std::endl;
-//
-//    }
-//
-//
-//Exit:
-//
-//    /* free data buffers  */
-//    for (i = 0; i < columns; i++)
-//    {
-//        if (data[i] != NULL) free(data[i]);
-//    }
-//
-//    if (hStmt)
-//    {
-//        SQLCloseCursor(hStmt);
-//        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-//    }
-//
-//    if (hDBC)
-//    {
-//        SQLDisconnect(hDBC);
-//        SQLFreeHandle(SQL_HANDLE_DBC, hDBC);
-//    }
-//
-//    if (hEnv)
-//    {
-//        SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
-//    }
-//
-//
-//}
-
-
-
-
-cSqlDb::cSqlDb(const char* pConstr)
+cSqlDb::cSqlDb()
 {
-    if (pConstr)
-    {
-        strncpy((char*)conStr, pConstr, 256);
-    }
+
 }
 
 cSqlDb::~cSqlDb()
@@ -382,8 +165,6 @@ cSqlDb::~cSqlDb()
 
 }
 
-
-
 void cSqlDb::GetCFieldType(SColumn& pCol)
 {
     pCol.TargetValuePtr = (SQLPOINTER)malloc(pCol.ColumnSize);
@@ -391,7 +172,6 @@ void cSqlDb::GetCFieldType(SColumn& pCol)
     {
     case SQL_BIT:
         pCol.TargetType = SQL_C_BIT;
-       // pCol.TargetValuePtr = (SQLPOINTER)new bool();
         pCol.StrLen_or_IndPtr = 0;
         break;
 
@@ -399,37 +179,32 @@ void cSqlDb::GetCFieldType(SColumn& pCol)
     case SQL_SMALLINT:
     case SQL_INTEGER:
         pCol.TargetType = SQL_C_SLONG;
-     //   pCol.TargetValuePtr = (SQLPOINTER)malloc(pCol.ColumnSize);
         pCol.StrLen_or_IndPtr = 0;
         break;
 
     case SQL_REAL:
+    case SQL_FLOAT:
         pCol.TargetType = SQL_C_FLOAT;
-     //   pCol.TargetValuePtr = (SQLPOINTER)new float();
         pCol.StrLen_or_IndPtr = 0;
         break;
 
-    case SQL_FLOAT:
     case SQL_DOUBLE:
         pCol.TargetType = SQL_C_DOUBLE;
-    //    pCol.TargetValuePtr = (SQLPOINTER)new double();
+        pCol.StrLen_or_IndPtr = 0;
+        break;
+
+    case SQL_BIGINT:
+        pCol.TargetType = SQL_C_SBIGINT;
         pCol.StrLen_or_IndPtr = 0;
         break;
 
     case SQL_DATE:
     case SQL_TIME:
+    case SQL_TYPE_DATE:
+    case SQL_TYPE_TIME:
     case SQL_TIMESTAMP:
     case SQL_TYPE_TIMESTAMP:
         pCol.TargetType = SQL_C_TIMESTAMP;
-    //    pCol.TargetValuePtr = (SQLPOINTER) new TIMESTAMP_STRUCT();
-        pCol.StrLen_or_IndPtr = 0;
-        break;
-
-    case SQL_NUMERIC:
-    case SQL_DECIMAL:
-    case SQL_BIGINT:
-        pCol.TargetType = SQL_C_LONG;
-  //      pCol.TargetValuePtr = (SQLPOINTER)new long();
         pCol.StrLen_or_IndPtr = 0;
         break;
 
@@ -437,10 +212,9 @@ void cSqlDb::GetCFieldType(SColumn& pCol)
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
         pCol.TargetType = SQL_C_BINARY;
-        //  pCol.TargetValuePtr = (SQLPOINTER)malloc(pCol.ColumnSize);
-  //      pCol.TargetValuePtr = (SQLPOINTER)new byte[pCol.ColumnSize];
         break;
 
+    case SQL_DECIMAL:
     case SQL_GUID:
     case SQL_LONGVARCHAR:
     case SQL_UNICODE_LONGVARCHAR:
@@ -449,8 +223,6 @@ void cSqlDb::GetCFieldType(SColumn& pCol)
     case SQL_UNICODE:
     case SQL_UNICODE_VARCHAR:
         pCol.TargetType = SQL_C_CHAR;
-        // pCol.TargetValuePtr = (SQLPOINTER)malloc(collen * sizeof(char));
-    //    pCol.TargetValuePtr = (SQLPOINTER)new char[pCol.ColumnSize];
         pCol.StrLen_or_IndPtr = SQL_NTS;
         break;
 
@@ -458,7 +230,6 @@ void cSqlDb::GetCFieldType(SColumn& pCol)
     default:
         //	Unknown data type
         pCol.TargetType = SQL_C_CHAR;
-   //     pCol.TargetValuePtr = (SQLPOINTER)new char[pCol.ColumnSize];
         pCol.StrLen_or_IndPtr = SQL_NTS;
     }
 }
@@ -496,21 +267,17 @@ void cSqlDb::HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCOD
 
 }
 
-
-
 void cSqlDb::DumpLoaded()
 {
-
     for (auto i : vd)
     {
         std::cout << "RowNumber: " << i->RowNumber << std::endl;
         for (auto j : i->Fields)
         {
-            std::cout << j->fieldName << " : " << j->GetStrValue();
+            if (j)
+                std::cout << j->fieldName << " : " << j->GetStrValue() << std::endl;
         }
         std::cout << std::endl << std::endl;
-        //std::cout << "FieldName: " << (*i)->fieldName << " \t Type: " << (*i)->dbType  << " \t Value: " <<  ((DbData<std::string>*)(*i))->GetStrValue() << std::endl;
-         //std::cout << "FieldName: " << (*i)->fieldName << " \t Type: " << (*i)->dbType  << " \t Value: " <<  (*i)->GetStrValue() << std::endl;
     }
 }
 
@@ -602,6 +369,7 @@ BackObject cSqlDb::LoadData()
         ret = SQLFetch(hStmt);
         if (ret == SQL_NO_DATA_FOUND)
         {
+            std::cout << "No data back " << std::endl; // todo ?
             break;
         }
 
@@ -614,39 +382,114 @@ BackObject cSqlDb::LoadData()
         }
 
         if (ret == SQL_SUCCESS_WITH_INFO)
-        {
-           
+        {           
             HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
-
         }
 
         for (auto& d : columns)
         {
             switch (d.TargetType)
             {
+            case SQL_C_WCHAR:
             case SQL_C_CHAR:
             {
                 dd = new FieldData<std::string>();
                 dd->fieldName = (char*)(d.ColumnName);
-                dd->dbType = dbRetType::String;
+                dd->dbType = dbRetType::db_String;
                 dd->fnumber = d.ColumnNumber;
-                ((FieldData<std::string>*)dd)->SetValue(d.toStr());
+              //  ((FieldData<std::string>*)dd)->SetValue(d.toStr());
+                ((FieldData<std::string>*)dd)->SetValue(d.AsString());
                 break;
             }
+          
+            case SQL_C_LONG:
             case SQL_C_SLONG:
             {
                 dd = new FieldData<int>();
                 dd->fieldName = (char*)(d.ColumnName);
-                dd->dbType = dbRetType::Int;
+                dd->dbType = dbRetType::db_Int;
                 dd->fnumber = d.ColumnNumber;
-                ((FieldData<int>*)dd)->SetValue(*(int*)(d.TargetValuePtr));
+               // ((FieldData<int>*)dd)->SetValue(*(int*)(d.TargetValuePtr));
+                ((FieldData<int>*)dd)->SetValue(d.AsInt());
                 break;
             }
+            case SQL_C_FLOAT:
+            {
+                dd = new FieldData<float>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_Float;
+                dd->fnumber = d.ColumnNumber;
+                // ((FieldData<int>*)dd)->SetValue(*(int*)(d.TargetValuePtr));
+                ((FieldData<float>*)dd)->SetValue(d.AsFloat());
+                break;
+            }
+            case SQL_C_UBIGINT:
+            case SQL_C_SBIGINT:
+            {
+                dd = new FieldData<long long>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_Int64;
+                dd->fnumber = d.ColumnNumber;
+                ((FieldData<long long>*)dd)->SetValue(*(long long*)(d.TargetValuePtr));
+                ((FieldData<long long>*)dd)->SetValue(d.AsLongLong());
+                break;
+            }
+            case SQL_C_GUID:
+            {
+                dd = new FieldData<std::string>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_String;
+                dd->fnumber = d.ColumnNumber;
+                ((FieldData<std::string>*)dd)->SetValue(d.AsString());
+                break;
+            }
+            case SQL_C_TIMESTAMP:
+            case SQL_C_DATE:
+            case SQL_C_TIME:
+            {
+                dd = new FieldData<std::string>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_String;
+                dd->fnumber = d.ColumnNumber;
+                ((FieldData<std::string>*)dd)->SetValue(d.AsString());
+                break;
+            }
+            case SQL_C_BINARY:
+            {
+                std::cout << "binary type: " << d.TargetType << std::endl;
+                dd = new FieldData<byte*>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_Byte;
+                dd->fnumber = d.ColumnNumber;
+                ((FieldData<byte*>*)dd)->SetValue(d.AsByteP());
+                break;
+            }
+            case SQL_C_BIT:
+            {
+                dd = new FieldData<bool>();
+                dd->fieldName = (char*)(d.ColumnName);
+                dd->dbType = dbRetType::db_Bool;
+                dd->fnumber = d.ColumnNumber;
+                //bool* bp = reinterpret_cast<bool*>(d.TargetValuePtr);
+                ((FieldData<bool>*)dd)->SetValue(d.AsBool());
+                break;
+            }
+            case SQL_C_NUMERIC:
+            {
+                std::cout << "numeric type: " << d.TargetType << std::endl;
+                break;
+            }
+            default:
+            {
+                std::cout << "unhandled type: " << d.TargetType << std::endl;
+                break;
+            }
+               
 
             }
-            std::cout << d.ColumnName << " : " << d.toStr() << std::endl;
-
-            rd->Fields.push_back(dd);
+            std::cout << d.ColumnName << " : " << d.AsString() << std::endl;
+            if(dd)
+                rd->Fields.push_back(dd);
         }
         vd.push_back(rd);
     }
@@ -654,48 +497,136 @@ BackObject cSqlDb::LoadData()
     return back;
 }
 
-BackObject cSqlDb::Doit()
+bool cSqlDb::DoAddParameter(void* pValue, dbRetType pType, unsigned short pNumber, int pDir, bool bResetParams)
 {
-    BackObject back;
-
-    //SQLLEN          displaysize;                 // drivers column display size
-    SQLINTEGER      i, j;
-    SQLSMALLINT sNumResults;
-    SQLLEN cRowCount;
-
-    SQLRETURN ret;
-    int iType = 13;
-
-    back = Initiliaze();
-    if (!back.Success)
-        return back;
-    back = Connect();
-    if (!back.Success)
-        return back;
-
-
-
-    AddParameter<int>(&iType, 1);
-    BindParameters();
-    ret = SQLPrepareA(hStmt, (SQLCHAR*)"select ID,Name, Type, ParentID from Assets where Type = ?", SQL_NTS);
-    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+    bool back = true;
+    ISParameter pp;
+    switch (pType)
     {
-        back.ErrDesc = "SQLPrepareA failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+    case dbRetType::db_Short:
+    {
+        pp = ISParameter::ParameterFactory::CreateShortParameter(reinterpret_cast<short*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_Int:
+    {
+        pp = ISParameter::ParameterFactory::CreateIntParameter(reinterpret_cast<int*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_Int64:
+    {
+        pp = ISParameter::ParameterFactory::CreateBigintIntParameter(reinterpret_cast<long long*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_Float:
+    {
+        pp = ISParameter::ParameterFactory::CreateFloatParameter(reinterpret_cast<float*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_Bool:
+    {
+        pp = ISParameter::ParameterFactory::CreateBoolParameter(reinterpret_cast<bool*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_String:
+    {
+        pp = ISParameter::ParameterFactory::CreateCharParameter(reinterpret_cast<std::string*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    case dbRetType::db_Date:
+    {
+        pp = ISParameter::ParameterFactory::CreateDateParameter(reinterpret_cast<std::string*>(pValue), pNumber, pDir);
+        AddParameter(pp, bResetParams);
+        break;
+    }
+    default:
+        back = false;
+    }
+
+    return back;
+}
+
+bool cSqlDb::DoInitiliaze(const char* pConstr, char* pErr, size_t pErrSize)
+{
+    bool back = false;
+    if (pConstr)
+        strncpy((char*)conStr, pConstr, 256);
+    else
+        return back;
+    BackObject rb = Initiliaze();
+    if (rb.Success == false)
+    {
+        back = false;
+        memset(pErr, 0, pErrSize);
+        strncpy(pErr,rb.ErrDesc.c_str(),pErrSize-1);
+    }
+    else
+         back = true;
+    return back;
+}
+
+bool cSqlDb::DoExecute(const char* pQuery, char* pErr, size_t pErrSize)
+{
+    bool back = false;
+    BackObject rb;
+
+    if (hEnv == SQL_NULL_HENV)
+    {
+        memset(pErr, 0, pErrSize);
+        strncpy(pErr, "Odbc driver is not initilized", pErrSize - 1);
         return back;
     }
 
-    back = BindColumns();
-    if (!back.Success)
-        return back;
+    SQLSMALLINT sNumResults;
+    SQLLEN cRowCount;
+    SQLRETURN ret;
 
-
-
-    ret = SQLExecDirect(hStmt, (SQLTCHAR*)L"select ID,Name, Type, ParentID from Assets where Type = ?;", SQL_NTS);
+    if (!IsConnected())
+    {
+        rb = Connect();
+        if (!rb.Success)
+        {
+            memset(pErr, 0, pErrSize);
+            strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+            return back;
+        }
+   }
+        
+    BindParameters();
+    ret = SQLPrepareA(hStmt, (SQLCHAR*)pQuery, SQL_NTS);
     if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
     {
-        back.ErrDesc = "SQLExecDirect failed";
-        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        rb.ErrDesc = "SQLPrepareA failed";
+        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, rb);
+        memset(pErr, 0, pErrSize);
+        strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+        return back;
+    }
+
+    rb = BindColumns();
+    if (!rb.Success)
+    {
+        memset(pErr, 0, pErrSize);
+        strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+        return back;
+    }
+
+
+
+    ret = SQLExecDirectA(hStmt, (SQLCHAR*)pQuery, SQL_NTS);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+    {
+        rb.ErrDesc = "SQLExecDirectA failed";
+        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, rb);
+        memset(pErr, 0, pErrSize);
+        strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+        DisConnect();
         return back;
     }
     else
@@ -703,15 +634,22 @@ BackObject cSqlDb::Doit()
         ret = SQLNumResultCols(hStmt, &sNumResults);
         if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
         {
-            back.ErrDesc = "SQLNumResultCols failed";
-            HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+            rb.ErrDesc = "SQLNumResultCols failed";
+            HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, rb);
+            memset(pErr, 0, pErrSize);
+            strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+            DisConnect();
             return back;
         }
         if (sNumResults > 0)
         {
-            back = LoadData();
-            if (!back.Success)
-                return back;
+            rb = LoadData();
+            if (!rb.Success)
+            {
+                memset(pErr, 0, pErrSize);
+                strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+                DisConnect();
+            }
             DumpLoaded();
         }
         else
@@ -719,8 +657,11 @@ BackObject cSqlDb::Doit()
             ret = SQLRowCount(hStmt, &cRowCount);
             if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
             {
-                back.ErrDesc = "SQLRowCount failed";
-                HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+                rb.ErrDesc = "SQLRowCount failed";
+                HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, rb);
+                memset(pErr, 0, pErrSize);
+                strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
+                DisConnect();
                 return back;
             }
             if (cRowCount >= 0)
@@ -731,7 +672,20 @@ BackObject cSqlDb::Doit()
     }
 
     DisConnect();
-
+    back = true;
     return back;
-
 }
+
+bool cSqlDb::DoLoad(RowData** pRows)
+{
+    bool back = false;    
+    for (int i = 0; i<vd.size(); i++)
+    {
+        *pRows = new RowData();
+        (*pRows)->Fields.assign(vd[i]->Fields.begin(), vd[i]->Fields.end());
+        pRows++;
+    }
+    back = true;
+    return back;
+}
+

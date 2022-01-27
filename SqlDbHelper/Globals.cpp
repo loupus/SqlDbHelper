@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <sstream>
 #include <regex>
+#include <ctime>
 #include <iomanip>
 #include "Globals.hpp"
 
@@ -40,6 +41,7 @@ std::size_t Globals::GetCharLen(std::string& pstr)
     back = wstr.length();
     return back;
 }
+
 std::size_t  Globals::GetFirstIndexOf(std::string& pstr, std::string& psrch)
 {
     size_t back = 0;
@@ -48,6 +50,7 @@ std::size_t  Globals::GetFirstIndexOf(std::string& pstr, std::string& psrch)
     back = wstr.find_first_of(wsrch);
     return back;
 }
+
 std::size_t  Globals::GetLastIndexOf(std::string& pstr, std::string& psrch)
 {
     size_t back = 0;
@@ -56,6 +59,7 @@ std::size_t  Globals::GetLastIndexOf(std::string& pstr, std::string& psrch)
     back = wstr.find_last_of(wsrch);
     return back;
 }
+
 std::string Globals::GetSubString(std::string& pstr, std::size_t  pbegin, std::size_t  plength)
 {
     std::string back = "";
@@ -316,9 +320,12 @@ bool is_valid_utf8(const char* string)
     return true;
 }
 
-std::string Globals::tmToStr(tm* ptm)
+std::string Globals::tmToStr(struct tm* ptm)
 {
     std::ostringstream dtss;
+   // dtss.imbue(std::locale("tr-TR"));
+  //  time_t _tm = time(NULL);
+   // struct tm* curtime = localtime(&_tm);
     dtss << std::put_time(ptm, "%Y-%m-%d %H:%M:%S");
     return dtss.str();
 }

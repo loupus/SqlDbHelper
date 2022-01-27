@@ -1,14 +1,33 @@
 #pragma once
 #include <string>
 #include <vector>
+
+enum ParameterDirection
+{
+	_ParamUnkown = 0,
+	_ParamInput = 1,
+	_ParamInputOutput = 2,
+	_ParamResultCol = 3,
+	_ParamOutput = 4,
+	_ParamReturnValue = 5
+};
+
+
 enum dbRetType
 {
-	None,
-	Short,
-	Int,
-	Int64,
-	String
+	db_Null,
+	db_Short,
+	db_Int,
+	db_Int64,
+	db_String,
+	db_Float,
+	db_Bool,
+	db_Date,
+	db_Byte
 };
+
+
+
 
 class IFieldData
 {
