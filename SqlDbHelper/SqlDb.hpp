@@ -20,6 +20,7 @@ private:
     std::vector<RowData*> vd;
 
     BackObject LoadData();
+    void ClearRowData();
     void GetCFieldType(SColumn& pCol);
     void HandleDiagnosticRecord(SQLHANDLE hHandle, SQLSMALLINT hType, RETCODE RetCode, BackObject& pBack );
     void DumpLoaded();
@@ -30,6 +31,7 @@ private:
     BackObject Connect();
     BackObject DisConnect();
     BackObject BindParameters();
+    BackObject GetRowCount(long long* pRowCount);
     bool IsConnected();
     void AddParameter(ISParameter& p, bool bResetParams = false);
 
@@ -40,4 +42,5 @@ public:
     bool DoInitiliaze(const char* pConstr, char* pErr, size_t pErrSize);
     bool DoExecute(const char* pQuery, char* pErr, size_t pErrSize);
     bool DoLoad(RowData** pRows);
+    void DoGetRowCount(size_t* pRowCount);
 };

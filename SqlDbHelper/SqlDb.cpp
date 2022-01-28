@@ -109,6 +109,22 @@ BackObject cSqlDb::BindParameters()
     return back;
 }
 
+BackObject cSqlDb::GetRowCount(long long* pRowCount)
+{
+    BackObject back;
+    SQLLEN rowCount = 0;
+    ret = SQLRowCount(hStmt, &rowCount);
+    if (ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO)
+    {
+        back.ErrDesc = "SQLRowCount failed";
+        HandleDiagnosticRecord(hStmt, SQL_HANDLE_STMT, ret, back);
+        back.Success = false;
+        return back;
+    }
+    *pRowCount = rowCount;
+    return back;
+}
+
 bool cSqlDb::IsConnected()
 {
     /*
@@ -163,6 +179,7 @@ cSqlDb::~cSqlDb()
         SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
     }
 
+    ClearRowData();
 }
 
 void cSqlDb::GetCFieldType(SColumn& pCol)
@@ -361,6 +378,8 @@ BackObject cSqlDb::LoadData()
     IFieldData* dd = nullptr;
     RowData* rd = nullptr;
 
+    ClearRowData();
+
     while (true)
     {
         rd = new RowData();
@@ -369,7 +388,7 @@ BackObject cSqlDb::LoadData()
         ret = SQLFetch(hStmt);
         if (ret == SQL_NO_DATA_FOUND)
         {
-            std::cout << "No data back " << std::endl; // todo ?
+           // std::cout << "No data back " << std::endl; // todo ?
             break;
         }
 
@@ -487,7 +506,7 @@ BackObject cSqlDb::LoadData()
                
 
             }
-            std::cout << d.ColumnName << " : " << d.AsString() << std::endl;
+           // std::cout << d.ColumnName << " : " << d.AsString() << std::endl;
             if(dd)
                 rd->Fields.push_back(dd);
         }
@@ -495,6 +514,20 @@ BackObject cSqlDb::LoadData()
     }
 
     return back;
+}
+
+void cSqlDb::ClearRowData()
+{
+    for (auto r : vd)
+    {   
+        if (r) // field temizliği rowdatanın destructorında
+        {
+            delete r;
+            r = nullptr;
+        }
+    }
+    vd.clear();
+    vd.shrink_to_fit();
 }
 
 bool cSqlDb::DoAddParameter(void* pValue, dbRetType pType, unsigned short pNumber, int pDir, bool bResetParams)
@@ -650,7 +683,7 @@ bool cSqlDb::DoExecute(const char* pQuery, char* pErr, size_t pErrSize)
                 strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
                 DisConnect();
             }
-            DumpLoaded();
+            //DumpLoaded();
         }
         else
         {
@@ -678,14 +711,22 @@ bool cSqlDb::DoExecute(const char* pQuery, char* pErr, size_t pErrSize)
 
 bool cSqlDb::DoLoad(RowData** pRows)
 {
-    bool back = false;    
+    bool back = false;      
+    int rowcount = 0;
+    rowcount = vd.size();
     for (int i = 0; i<vd.size(); i++)
     {
         *pRows = new RowData();
+        (*pRows)->RowNumber = vd[i]->RowNumber;
         (*pRows)->Fields.assign(vd[i]->Fields.begin(), vd[i]->Fields.end());
         pRows++;
     }
     back = true;
     return back;
+}
+
+void cSqlDb::DoGetRowCount(size_t* pRowCount)
+{
+    *pRowCount = vd.size();
 }
 
