@@ -820,7 +820,7 @@ bool cSqlDb::DoExecute(const char* pQuery, char* pErr, size_t pErrSize)
                 strncpy(pErr, rb.ErrDesc.c_str(), pErrSize - 1);
                 DisConnect();
             }
-            DumpLoaded();
+            //DumpLoaded();
         }
         else
         {

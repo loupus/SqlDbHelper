@@ -35,7 +35,7 @@ private :
 	{
 		if (fdata)
 		{
-			delete fdata;
+			free (fdata);
 			fdata = nullptr;
 		}
 	}
@@ -51,11 +51,7 @@ public:
 	}
 	~Field()
 	{
-		if (fdata)
-		{
-			delete fdata;
-			fdata = nullptr;
-		}
+		ClearData();
 	}
 
 	void SetData(void* pData, size_t pDataLen)
@@ -81,7 +77,7 @@ public:
 	short AsShort()
 	{
 		short back = 0;
-		if (dbRetType::db_Short)
+		if (ftype == dbRetType::db_Short)
 			back = *((short*)fdata);
 		return back;
 	}
@@ -89,7 +85,7 @@ public:
 	int AsInt()
 	{
 		int back = 0;
-		if (dbRetType::db_Int)
+		if (ftype == dbRetType::db_Int)
 			back = *((int*)fdata);
 		return back;
 	}
@@ -97,7 +93,7 @@ public:
 	long long AsLongLong()
 	{
 		long long back = 0;
-		if (dbRetType::db_Int64)
+		if (ftype ==dbRetType::db_Int64)
 			back = *((long long*)fdata);
 		return back;
 	}
@@ -105,7 +101,15 @@ public:
 	float AsFloat()
 	{
 		float back = 0;
-		if (dbRetType::db_Float)
+		if (ftype == dbRetType::db_Float)
+			back = *((float*)fdata);
+		return back;
+	}
+
+	bool AsBool()
+	{
+		bool back = false;
+		if (ftype == dbRetType::db_Bool)
 			back = *((float*)fdata);
 		return back;
 	}
