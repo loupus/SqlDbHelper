@@ -1,0 +1,5 @@
+LIBRARY SqlDbHelper
+DESCRIPTION  "alomeloo"
+EXPORTS
+GetDbInstance @1
+ReleaseDbInstance @2

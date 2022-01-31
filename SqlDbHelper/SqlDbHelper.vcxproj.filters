@@ -16,5 +16,9 @@
     <ClInclude Include="SqlDbHelper.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="DbClasses.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SqlDbHelper.def" />
   </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@
 #include <vector>
 #include "Globals.hpp"
 #include "OdbcTypes.hpp"
-#include "DbClasses.hpp"
+#include "DbClasses.h"
 #include "SqlDbHelper.h"
 
 
@@ -15,9 +15,12 @@ private:
     SQLHANDLE hEnv = SQL_NULL_HENV, hDBC = SQL_NULL_HDBC, hStmt = SQL_NULL_HSTMT;
     SQLRETURN ret = 0;
     SQLCHAR conStr[256] = { 0 };
+    SQLSMALLINT ncolumns;
+    SQLLEN nrows;
+    SQLLEN naffectedrows;
     std::vector<ISParameter> params;
     std::vector<SColumn> columns;
-    std::vector<RowData*> vd;
+    RowData** vd;
 
     BackObject LoadData();
     void ClearRowData();

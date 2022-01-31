@@ -2,7 +2,7 @@
 //
 
 #include <iostream>
-#include "DbClasses.hpp"
+#include "DbClasses.h"
 #include "SqlDbHelper.h"
 
 int main()
@@ -36,8 +36,8 @@ int main()
     }
 
     sqldb->DoGetRowCount(&rowcount);
-    data = (RowData**)malloc(sizeof(RowData*) * rowcount);
-    memset(data, 0, sizeof(RowData*) * rowcount);
+    data = (RowData**)calloc(rowcount,sizeof(RowData*));
+   // memset(data, 0, sizeof(RowData*) * rowcount);
     back = sqldb->DoLoad(data);
     if (!back)
     {
@@ -45,18 +45,56 @@ int main()
         goto exit;
     }
 
+
+    // dump
+
+
+    std::cout << "TotalNumberOfRows: " << rowcount << std::endl;
+
+
    for (int i = 0; i< rowcount; i++)
     {
        std::cout << std::endl;
        std::cout << data[i]->RowNumber << ":: ";
-       fcount = data[i]->Fields.size();
+       fcount = data[i]->nFields;
+       std::cout << "TotalNumberOfFields: " << fcount << std::endl;
+       RowData* row = data[i];
+       if (!row) continue;
        for (int j = 0; j < fcount; j++)
        {
-           std::cout << data[i]->Fields[j]->fieldName.c_str() << " : " << data[i]->Fields[j]->GetStrValue() << " - ";
+           Field* fi = row->Fields[j];
+           if (!fi) break;
+           std::cout << fi->fname << " - ";
+           switch (fi->ftype)
+           {
+           case dbRetType::db_String:
+           {
+               char* aa = fi->AsChar();
+               std::cout << aa << " - ";
+               break;
+           }
+           case dbRetType::db_Short:
+           {
+               short aa = fi->AsShort();
+               std::cout << aa << " - ";
+               break;
+           }
+           case dbRetType::db_Int:
+           {
+               int aa = fi->AsInt();
+               std::cout << aa << " - ";
+               break;
+           }
+           case dbRetType::db_Int64:
+           {
+               long long aa = fi->AsLongLong();
+               std::cout << aa << " - ";
+               break;
+           }
+          }
        }
+      
        std::cout << std::endl;
-      //  std::cout << (*data)->Fields.at(0)->fieldName <<   std::endl;
-      //  data++;
     }
 
 
